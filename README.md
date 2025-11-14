@@ -1,0 +1,1516 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Контейнер кэша</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --dark: #1a252f;
+            --light: #ecf0f1;
+            --gray: #bdc3c7;
+            --text: #2c3e50;
+            --special: #8e44ad;
+            --gold: #f1c40f;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark), var(--primary));
+            color: var(--light);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .app-container {
+            max-width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Основной контент */
+        .app-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        /* Карточки */
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--gold);
+            letter-spacing: 0.5px;
+        }
+        
+        /* Статистика */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-item {
+            background: rgba(44, 62, 80, 0.7);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(241, 196, 15, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            transform: translateY(-3px);
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--gold);
+            margin: 8px 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--gray);
+            letter-spacing: 0.5px;
+        }
+        
+        /* Игровое поле */
+        .game-area {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .game-cell {
+            aspect-ratio: 1;
+            background: linear-gradient(145deg, #2c3e50, #34495e);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid #3a506b;
+            font-weight: bold;
+            position: relative;
+            overflow: hidden;
+            font-size: 0.8rem;
+            text-align: center;
+            padding: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .game-cell:before {
+            content: "?";
+            font-size: 1.5rem;
+            color: var(--gold);
+            font-weight: bold;
+        }
+        
+        .game-cell:hover {
+            transform: scale(1.05);
+            border-color: var(--gold);
+        }
+        
+        .game-cell.open {
+            background: linear-gradient(145deg, #3a506b, #2c3e50);
+        }
+        
+        .game-cell.open:before {
+            display: none;
+        }
+        
+        .game-cell.win {
+            background: linear-gradient(145deg, var(--accent), #219653);
+            color: white;
+            box-shadow: 0 0 20px rgba(39, 174, 96, 0.8);
+            animation: pulse 1.5s infinite;
+            border-color: #27ae60;
+        }
+        
+        .game-cell.second-chance {
+            background: linear-gradient(145deg, var(--warning), #e67e22);
+            color: white;
+            box-shadow: 0 0 20px rgba(243, 156, 18, 0.8);
+            animation: pulse 1.5s infinite;
+            border-color: #f39c12;
+        }
+        
+        .game-cell.special {
+            background: linear-gradient(145deg, var(--special), #8e44ad);
+            color: white;
+            box-shadow: 0 0 20px rgba(142, 68, 173, 0.8);
+            animation: pulse 1.5s infinite;
+            border-color: #8e44ad;
+        }
+        
+        .game-cell.lose {
+            background: linear-gradient(145deg, #5a6a7a, #4a5a6a);
+            color: white;
+            border-color: #7f8c8d;
+        }
+        
+        .game-cell.lose:before {
+            content: "❌";
+            font-size: 1.3rem;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Кнопки */
+        .btn {
+            padding: 16px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 15px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(145deg, var(--gold), #f39c12);
+            color: var(--dark);
+            border: 1px solid rgba(241, 196, 15, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(145deg, #f39c12, var(--gold));
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(241, 196, 15, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(145deg, var(--accent), #2ecc71);
+            color: white;
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(145deg, #2ecc71, var(--accent));
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(145deg, var(--danger), #e74c3c);
+            color: white;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(145deg, #e74c3c, var(--danger));
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(231, 76, 60, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #7f8c8d;
+            color: #bdc3c7;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* Таймер */
+        .timer {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--gold);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: 0.5px;
+        }
+        
+        /* Сообщения */
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 15px 0;
+            display: none;
+            width: 100%;
+            font-weight: 500;
+        }
+        
+        .message.error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+        
+        .message.success {
+            background: rgba(39, 174, 96, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+        
+        .message.info {
+            background: rgba(241, 196, 15, 0.2);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+        }
+        
+        /* Модальные окна */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--gold);
+            animation: modalAppear 0.3s ease;
+        }
+        
+        @keyframes modalAppear {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--gold);
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--light);
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: var(--gold);
+        }
+        
+        /* Формы */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            color: var(--gray);
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--light);
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 2px rgba(241, 196, 15, 0.2);
+        }
+        
+        /* Описание игры */
+        .game-description {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border: 1px solid rgba(241, 196, 15, 0.2);
+        }
+        
+        /* Правила игры */
+        .rules-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid rgba(241, 196, 15, 0.1);
+        }
+        
+        .rules-title {
+            font-size: 1rem;
+            color: var(--gold);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        .rules-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--gray);
+        }
+        
+        /* Индикатор автообновления */
+        .auto-reset-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(44, 62, 80, 0.9);
+            color: var(--gold);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(241, 196, 15, 0.3);
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 480px) {
+            .game-grid {
+                max-width: 350px;
+                gap: 8px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .game-cell {
+                font-size: 0.7rem;
+            }
+        }
+        
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        /* Уведомления */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: white;
+            padding: 16px 22px;
+            border-radius: 10px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            z-index: 3000;
+            display: none;
+            animation: slideIn 0.3s ease;
+            font-weight: 500;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Полноэкранные сообщения */
+        .fullscreen-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .fullscreen-content {
+            background: var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 450px;
+            width: 100%;
+            border: 2px solid var(--danger);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+        
+        .fullscreen-title {
+            font-size: 1.8rem;
+            color: var(--danger);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .fullscreen-text {
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+        
+        .win-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .win-content {
+            background: var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 450px;
+            width: 100%;
+            border: 2px solid var(--accent);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+        
+        .win-title {
+            font-size: 1.8rem;
+            color: var(--accent);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .win-text {
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+        
+        .second-chance-message {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .second-chance-content {
+            background: var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 450px;
+            width: 100%;
+            border: 2px solid var(--warning);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+        
+        .second-chance-title {
+            font-size: 1.8rem;
+            color: var(--warning);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .second-chance-text {
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Уведомление -->
+    <div class="notification" id="notification"></div>
+    
+    <!-- Индикатор автообновления -->
+    <div class="auto-reset-indicator" id="autoResetIndicator">
+        <i class="fas fa-sync-alt"></i> Автообновление через: <span id="countdown">3</span> сек
+    </div>
+    
+    <!-- Основное приложение -->
+    <div id="appScreen" class="app-container">
+        <!-- Основной контент -->
+        <div class="app-content">
+            <!-- Описание игры -->
+            <div class="game-description" id="gameDescription">У тебя есть одна попытка в сутки, чтобы испытать удачу и получить от админа деньги до 15.000 руб. Надеюсь, тебе повезёт. Удачи!</div>
+            
+            <!-- Статистика -->
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Онлайн игроков</div>
+                    <div class="stat-value" id="onlineCount">35</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Ваш баланс</div>
+                    <div class="stat-value" id="balance">0 руб</div>
+                </div>
+            </div>
+            
+            <!-- Игровое поле -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Игровое поле</div>
+                    <div style="color: var(--gold); font-weight: 600;" id="gameStatus">Готов к игре</div>
+                </div>
+                <div class="game-area">
+                    <div class="game-grid" id="gameGrid">
+                        <!-- Ячейки будут созданы через JavaScript -->
+                    </div>
+                    <div class="timer" id="timer">У вас есть 6 секунд!</div>
+                    <div class="message error" id="gameMessage">К сожалению, вы не выиграли. Попробуйте завтра!</div>
+                    <button class="btn btn-primary" id="startGameBtn"><i class="fas fa-play"></i> Начать игру</button>
+                    <button class="btn btn-success" id="withdrawBtn" disabled><i class="fas fa-wallet"></i> Получить выигрыш</button>
+                </div>
+                
+                <!-- Правила игры -->
+                <div class="rules-card">
+                    <div class="rules-title" id="rulesTitle">Правила игры</div>
+                    <div class="rules-text" id="rulesText">Для участия в игре нажмите кнопку "Начать игру". У вас есть 6 секунд чтобы выбрать ячейку. Удачи!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно вывода средств -->
+    <div class="modal" id="withdrawModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Заявка на вывод средств</div>
+                <button class="modal-close" id="closeWithdrawModal">×</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Номер карты:</label>
+                <input type="text" class="form-input" id="cardNumber" placeholder="0000 0000 0000 0000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">ФИО:</label>
+                <input type="text" class="form-input" id="fullName" placeholder="Иванов Иван Иванович">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Банк получателя:</label>
+                <input type="text" class="form-input" id="bankName" placeholder="Сбербанк">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Сумма вывода (руб):</label>
+                <input type="number" class="form-input" id="withdrawAmount" min="1000" max="15000">
+            </div>
+            <button class="btn btn-success" id="submitWithdraw"><i class="fas fa-paper-plane"></i> Отправить заявку</button>
+            <button class="btn btn-danger" id="closeWithdraw"><i class="fas fa-times"></i> Отмена</button>
+        </div>
+    </div>
+    
+    <!-- Полноэкранные сообщения -->
+    <div class="fullscreen-message" id="fullscreenMessage">
+        <div class="fullscreen-content">
+            <div class="fullscreen-title" id="fullscreenTitle">К сожалению, вы не выиграли</div>
+            <div class="fullscreen-text" id="fullscreenText">Попробуйте свою удачу завтра!</div>
+            <button class="btn btn-danger" id="closeFullscreen"><i class="fas fa-times"></i> Закрыть</button>
+        </div>
+    </div>
+    
+    <div class="win-message" id="winMessage">
+        <div class="win-content">
+            <div class="win-title" id="winTitle">Поздравляем!</div>
+            <div class="win-text" id="winText">Вы выиграли!</div>
+            <button class="btn btn-success" id="closeWin"><i class="fas fa-check"></i> Закрыть</button>
+        </div>
+    </div>
+    
+    <div class="second-chance-message" id="secondChanceMessage">
+        <div class="second-chance-content">
+            <div class="second-chance-title" id="secondChanceTitle">Второй шанс!</div>
+            <div class="second-chance-text" id="secondChanceText">Вы получаете дополнительную попытку!</div>
+            <button class="btn btn-warning" id="useSecondChance" style="background: var(--warning); color: white;"><i class="fas fa-redo"></i> Использовать второй шанс</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Элементы интерфейса
+            const appScreen = document.getElementById('appScreen');
+            const startGameBtn = document.getElementById('startGameBtn');
+            const withdrawBtn = document.getElementById('withdrawBtn');
+            const withdrawModal = document.getElementById('withdrawModal');
+            const closeWithdrawModal = document.getElementById('closeWithdrawModal');
+            const submitWithdraw = document.getElementById('submitWithdraw');
+            const gameGrid = document.getElementById('gameGrid');
+            const timer = document.getElementById('timer');
+            const gameMessage = document.getElementById('gameMessage');
+            const balanceDisplay = document.getElementById('balance');
+            const onlineCount = document.getElementById('onlineCount');
+            const gameStatus = document.getElementById('gameStatus');
+            const notification = document.getElementById('notification');
+            const gameDescription = document.getElementById('gameDescription');
+            const rulesTitle = document.getElementById('rulesTitle');
+            const rulesText = document.getElementById('rulesText');
+            
+            // Полноэкранные сообщения
+            const fullscreenMessage = document.getElementById('fullscreenMessage');
+            const fullscreenTitle = document.getElementById('fullscreenTitle');
+            const fullscreenText = document.getElementById('fullscreenText');
+            const closeFullscreen = document.getElementById('closeFullscreen');
+            const winMessage = document.getElementById('winMessage');
+            const winTitle = document.getElementById('winTitle');
+            const winText = document.getElementById('winText');
+            const closeWin = document.getElementById('closeWin');
+            const secondChanceMessage = document.getElementById('secondChanceMessage');
+            const secondChanceTitle = document.getElementById('secondChanceTitle');
+            const secondChanceText = document.getElementById('secondChanceText');
+            const useSecondChance = document.getElementById('useSecondChance');
+            
+            // Элементы автообновления
+            const autoResetIndicator = document.getElementById('autoResetIndicator');
+            const countdownElement = document.getElementById('countdown');
+            
+            // Настройки по умолчанию
+            let gameSettings = {
+                cellCount: 25,
+                fakeWinCellCount: 5,
+                gameTime: 6,
+                secondChanceEnabled: true,
+                secondChanceCount: 3,
+                secondChanceName: "Второй шанс",
+                secondChanceDescription: "Вы получаете дополнительную попытку!",
+                specialCells: [
+                    {
+                        id: 1,
+                        name: "Специальный приз",
+                        prize: "20.000 руб"
+                    }
+                ],
+                gameTitle: 'Контейнер твоего кэша',
+                gameDescriptionText: 'У тебя есть одна попытка в сутки, чтобы испытать удачу и получить от админа деньги до 15.000 руб. Надеюсь, тебе повезёт. Удачи!',
+                winMessageText: 'Поздравляем! Вы выиграли!',
+                loseMessageText: 'К сожалению, вы не выиграли. Попробуйте завтра!',
+                startButtonText: 'Начать игру',
+                prizeButtonText: 'Получить выигрыш',
+                prizes: ['1.000 руб', '2.000 руб', '3.000 руб', '5.000 руб', '10.000 руб', '15.000 руб'],
+                rulesTitle: 'Правила игры',
+                rulesText: 'Для участия в игре нажмите кнопку "Начать игру". У вас есть 6 секунд чтобы выбрать ячейку. Удачи!',
+                minWithdrawAmount: 1000,
+                testMode: false
+            };
+            
+            // Игровые переменные
+            let gameState = {
+                isPlaying: false,
+                timeLeft: gameSettings.gameTime,
+                timerInterval: null,
+                cells: [],
+                fakeWinCells: [],
+                secondChanceCellIndexes: [],
+                specialCellIndexes: [],
+                user: null,
+                attempts: 1,
+                maxAttempts: 1,
+                hasSecondChance: false,
+                secondChancesRemaining: 0,
+                selectedCellIndex: -1
+            };
+            
+            // Переменные для автообновления
+            let autoResetTimer = null;
+            let countdownTimer = null;
+            let countdownValue = 3;
+            
+            // Функция для полного сброса игры
+            function resetGame() {
+                gameState.isPlaying = false;
+                clearInterval(gameState.timerInterval);
+                
+                // Убираем обработчики событий с ячеек
+                gameState.cells.forEach(cell => {
+                    cell.removeEventListener('click', handleCellClick);
+                });
+                
+                // Закрываем все ячейки
+                closeAllCells();
+                
+                // Активируем кнопку "Начать игру"
+                startGameBtn.disabled = false;
+                
+                // Скрываем все сообщения
+                gameMessage.style.display = 'none';
+                fullscreenMessage.style.display = 'none';
+                winMessage.style.display = 'none';
+                secondChanceMessage.style.display = 'none';
+                
+                // Скрываем индикатор автообновления
+                autoResetIndicator.style.display = 'none';
+                
+                // Сбрасываем текст таймера
+                timer.textContent = `У вас есть ${gameSettings.gameTime} секунд!`;
+                gameStatus.textContent = 'Готов к игре';
+                
+                // Очищаем таймер автообновления
+                if (autoResetTimer) {
+                    clearTimeout(autoResetTimer);
+                    autoResetTimer = null;
+                }
+                
+                // Очищаем таймер обратного отсчета
+                if (countdownTimer) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+                
+                // Сбрасываем состояние второго шанса
+                gameState.hasSecondChance = false;
+                gameState.secondChancesRemaining = 0;
+                gameState.selectedCellIndex = -1;
+            }
+            
+            // Функция для запуска автообновления
+            function startAutoReset() {
+                // Сбрасываем значение счетчика
+                countdownValue = 3;
+                countdownElement.textContent = countdownValue;
+                
+                // Показываем индикатор
+                autoResetIndicator.style.display = 'block';
+                
+                // Запускаем таймер обратного отсчета
+                countdownTimer = setInterval(() => {
+                    countdownValue--;
+                    countdownElement.textContent = countdownValue;
+                    
+                    if (countdownValue <= 0) {
+                        clearInterval(countdownTimer);
+                        resetGame();
+                    }
+                }, 1000);
+                
+                // Запускаем таймер автообновления
+                autoResetTimer = setTimeout(resetGame, 3000);
+            }
+            
+            // Инициализация приложения
+            function initApp() {
+                // Загружаем настройки
+                loadSettings();
+                
+                // Создаем пользователя по умолчанию
+                const savedUser = localStorage.getItem('currentUser');
+                if (savedUser) {
+                    try {
+                        gameState.user = JSON.parse(savedUser);
+                    } catch (e) {
+                        console.error("Ошибка при загрузке пользователя:", e);
+                        createDefaultUser();
+                    }
+                } else {
+                    createDefaultUser();
+                }
+                
+                // Создаем игровое поле
+                createGameGrid();
+                
+                // Обновляем статистику
+                updateStats();
+                
+                // Обновляем онлайн-игроков каждые 30 секунд
+                setInterval(updateOnlineCount, 30000);
+                
+                // Добавляем обработчики событий
+                setupEventListeners();
+            }
+            
+            // Создание пользователя по умолчанию
+            function createDefaultUser() {
+                gameState.user = {
+                    id: 1,
+                    username: 'Игрок',
+                    email: 'player@example.com',
+                    balance: 0,
+                    registrationDate: new Date().toISOString()
+                };
+                localStorage.setItem('currentUser', JSON.stringify(gameState.user));
+            }
+            
+            // Настройка обработчиков событий
+            function setupEventListeners() {
+                // Начать игру
+                startGameBtn.addEventListener('click', startGame);
+                
+                // Вывод средств
+                withdrawBtn.addEventListener('click', function() {
+                    if (gameState.user && gameState.user.balance >= gameSettings.minWithdrawAmount) {
+                        document.getElementById('withdrawAmount').value = gameState.user.balance;
+                        document.getElementById('withdrawAmount').max = gameState.user.balance;
+                        withdrawModal.style.display = 'flex';
+                    }
+                });
+                
+                // Закрыть форму вывода
+                closeWithdrawModal.addEventListener('click', function() {
+                    withdrawModal.style.display = 'none';
+                });
+                
+                // Отправить заявку на вывод
+                submitWithdraw.addEventListener('click', handleWithdraw);
+                
+                // Полноэкранные сообщения
+                closeFullscreen.addEventListener('click', resetGame);
+                closeWin.addEventListener('click', resetGame);
+                
+                useSecondChance.addEventListener('click', handleSecondChance);
+            }
+            
+            // Обработчик вывода средств
+            function handleWithdraw() {
+                const cardNumber = document.getElementById('cardNumber').value;
+                const fullName = document.getElementById('fullName').value;
+                const bankName = document.getElementById('bankName').value;
+                const amount = parseInt(document.getElementById('withdrawAmount').value);
+                
+                if (!cardNumber || !fullName || !bankName || !amount) {
+                    showNotification('Заполните все поля!', 'error');
+                    return;
+                }
+                
+                if (amount < gameSettings.minWithdrawAmount) {
+                    showNotification(`Минимальная сумма для вывода: ${gameSettings.minWithdrawAmount} руб`, 'error');
+                    return;
+                }
+                
+                if (amount > gameState.user.balance) {
+                    showNotification('Недостаточно средств на балансе', 'error');
+                    return;
+                }
+                
+                // Создаем заявку
+                const requests = JSON.parse(localStorage.getItem('withdrawRequests') || '[]');
+                const newRequest = {
+                    id: Date.now(),
+                    userId: gameState.user.id,
+                    username: gameState.user.username,
+                    cardNumber,
+                    fullName,
+                    bankName,
+                    amount,
+                    date: new Date().toISOString(),
+                    status: 'pending'
+                };
+                
+                requests.push(newRequest);
+                localStorage.setItem('withdrawRequests', JSON.stringify(requests));
+                
+                // Списываем сумму с баланса
+                gameState.user.balance -= amount;
+                localStorage.setItem('currentUser', JSON.stringify(gameState.user));
+                updateBalance();
+                
+                // Закрываем форму
+                withdrawModal.style.display = 'none';
+                showNotification('Заявка на вывод отправлена!', 'success');
+            }
+            
+            // Обработчик второго шанса
+            function handleSecondChance() {
+                secondChanceMessage.style.display = 'none';
+                
+                if (gameState.secondChancesRemaining > 0) {
+                    gameState.secondChancesRemaining--;
+                    resetGame(); // Используем resetGame для полного сброса
+                    startGameBtn.click(); // Запускаем новую игру
+                } else {
+                    // Если больше нет вторых шансов, показываем сообщение о проигрыше
+                    fullscreenMessage.style.display = 'flex';
+                    startAutoReset();
+                }
+            }
+            
+            // Загрузка настроек из localStorage
+            function loadSettings() {
+                const savedSettings = localStorage.getItem('gameSettings');
+                if (savedSettings) {
+                    try {
+                        gameSettings = {...gameSettings, ...JSON.parse(savedSettings)};
+                    } catch (e) {
+                        console.error("Ошибка при загрузке настроек:", e);
+                    }
+                }
+                
+                applySettings();
+            }
+            
+            // Применение настроек к интерфейсу
+            function applySettings() {
+                // Применяем текстовые настройки
+                gameDescription.textContent = gameSettings.gameDescriptionText;
+                startGameBtn.textContent = gameSettings.startButtonText;
+                withdrawBtn.textContent = gameSettings.prizeButtonText;
+                
+                // Обновляем текст полноэкранного сообщения
+                fullscreenTitle.textContent = gameSettings.loseMessageText;
+                fullscreenText.textContent = "Попробуйте свою удачу завтра!";
+                
+                // Обновляем текст выигрышного сообщения
+                winTitle.textContent = gameSettings.winMessageText;
+                winText.textContent = "Вы выиграли!";
+                
+                // Обновляем текст второго шанса
+                secondChanceTitle.textContent = gameSettings.secondChanceName;
+                secondChanceText.textContent = gameSettings.secondChanceDescription;
+                
+                // Обновляем правила
+                rulesTitle.textContent = gameSettings.rulesTitle;
+                rulesText.textContent = gameSettings.rulesText;
+            }
+            
+            // Показать уведомление
+            function showNotification(message, type = 'info') {
+                try {
+                    notification.textContent = message;
+                    notification.style.background = type === 'success' ? 'var(--accent)' :
+                                                    type === 'error' ? 'var(--danger)' : 'var(--gold)';
+                    notification.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        notification.style.display = 'none';
+                    }, 3000);
+                } catch (e) {
+                    console.error("Ошибка при показе уведомления:", e);
+                }
+            }
+            
+            // Обновление баланса
+            function updateBalance() {
+                if (gameState.user) {
+                    balanceDisplay.textContent = `${gameState.user.balance} руб`;
+                    checkWithdrawButton();
+                }
+            }
+            
+            // Добавление выигрыша к балансу
+            function addToBalance(amount) {
+                if (gameState.user) {
+                    const prizeAmount = parseInt(amount.replace(/\./g, '').replace(' руб', ''));
+                    const newBalance = gameState.user.balance + prizeAmount;
+                    gameState.user.balance = newBalance;
+                    try {
+                        localStorage.setItem('currentUser', JSON.stringify(gameState.user));
+                    } catch (e) {
+                        console.error("Ошибка при сохранении баланса:", e);
+                    }
+                    updateBalance();
+                }
+            }
+            
+            // Проверка кнопки вывода
+            function checkWithdrawButton() {
+                if (gameState.user) {
+                    const balance = gameState.user.balance;
+                    const minAmount = gameSettings.minWithdrawAmount;
+                    let pendingWithdrawals = [];
+                    
+                    try {
+                        pendingWithdrawals = JSON.parse(localStorage.getItem('withdrawRequests') || '[]')
+                            .filter(req => req.userId === gameState.user.id && req.status === 'pending');
+                    } catch (e) {
+                        console.error("Ошибка при проверке заявок на вывод:", e);
+                    }
+                    
+                    if (balance >= minAmount && pendingWithdrawals.length === 0) {
+                        withdrawBtn.disabled = false;
+                    } else {
+                        withdrawBtn.disabled = true;
+                    }
+                }
+            }
+            
+            // Создание игрового поля
+            function createGameGrid() {
+                try {
+                    gameGrid.innerHTML = '';
+                    gameState.cells = [];
+                    
+                    // Обновляем grid в зависимости от количества ячеек
+                    const columns = Math.ceil(Math.sqrt(gameSettings.cellCount));
+                    gameGrid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+                    
+                    for (let i = 0; i < gameSettings.cellCount; i++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'game-cell';
+                        cell.dataset.index = i;
+                        gameState.cells.push(cell);
+                        gameGrid.appendChild(cell);
+                    }
+                    
+                    // Выбираем случайные неиграющие ячейки с призами
+                    gameState.fakeWinCells = [];
+                    while (gameState.fakeWinCells.length < gameSettings.fakeWinCellCount) {
+                        const randomIndex = Math.floor(Math.random() * gameSettings.cellCount);
+                        if (!gameState.fakeWinCells.includes(randomIndex)) {
+                            gameState.fakeWinCells.push(randomIndex);
+                        }
+                    }
+                    
+                    // Выбираем ячейки второго шанса (если включено)
+                    gameState.secondChanceCellIndexes = [];
+                    if (gameSettings.secondChanceEnabled) {
+                        // Выбираем случайные ячейки, которые не являются неиграющими
+                        const availableCells = [];
+                        for (let i = 0; i < gameSettings.cellCount; i++) {
+                            if (!gameState.fakeWinCells.includes(i)) {
+                                availableCells.push(i);
+                            }
+                        }
+                        
+                        // Выбираем нужное количество ячеек второго шанса
+                        while (gameState.secondChanceCellIndexes.length < gameSettings.secondChanceCount && availableCells.length > 0) {
+                            const randomIndex = Math.floor(Math.random() * availableCells.length);
+                            gameState.secondChanceCellIndexes.push(availableCells[randomIndex]);
+                            availableCells.splice(randomIndex, 1);
+                        }
+                    }
+                    
+                    // Выбираем специальные ячейки
+                    gameState.specialCellIndexes = [];
+                    if (gameSettings.specialCells.length > 0) {
+                        // Выбираем случайные ячейки, которые не являются неиграющими или вторым шансом
+                        const availableCells = [];
+                        for (let i = 0; i < gameSettings.cellCount; i++) {
+                            if (!gameState.fakeWinCells.includes(i) && !gameState.secondChanceCellIndexes.includes(i)) {
+                                availableCells.push(i);
+                            }
+                        }
+                        
+                        // Выбираем специальные ячейки
+                        while (gameState.specialCellIndexes.length < gameSettings.specialCells.length && availableCells.length > 0) {
+                            const randomIndex = Math.floor(Math.random() * availableCells.length);
+                            gameState.specialCellIndexes.push(availableCells[randomIndex]);
+                            availableCells.splice(randomIndex, 1);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Ошибка при создании игрового поля:", e);
+                }
+            }
+            
+            // Показываем все ячейки в открытом состоянии
+            function showAllCells() {
+                gameState.cells.forEach((cell, index) => {
+                    if (gameState.fakeWinCells.includes(index)) {
+                        cell.className = 'game-cell open win';
+                        // Назначаем приз неиграющей ячейке
+                        const prizeIndex = index % gameSettings.prizes.length;
+                        cell.textContent = gameSettings.prizes[prizeIndex];
+                    } else if (gameState.secondChanceCellIndexes.includes(index)) {
+                        cell.className = 'game-cell open second-chance';
+                        cell.textContent = gameSettings.secondChanceName;
+                    } else if (gameState.specialCellIndexes.includes(index)) {
+                        const specialCellIndex = gameState.specialCellIndexes.indexOf(index);
+                        cell.className = 'game-cell open special';
+                        cell.textContent = gameSettings.specialCells[specialCellIndex].prize;
+                    } else {
+                        cell.className = 'game-cell open lose';
+                    }
+                });
+            }
+            
+            // Закрываем все ячейки
+            function closeAllCells() {
+                gameState.cells.forEach(cell => {
+                    cell.className = 'game-cell';
+                    cell.textContent = '';
+                });
+            }
+            
+            // Анимация перемешивания ячеек
+            function shuffleCells() {
+                return new Promise(resolve => {
+                    try {
+                        const containerRect = gameGrid.getBoundingClientRect();
+                        
+                        // Собираем начальные позиции
+                        const initialPositions = gameState.cells.map(cell => {
+                            const rect = cell.getBoundingClientRect();
+                            return {
+                                left: rect.left - containerRect.left,
+                                top: rect.top - containerRect.top
+                            };
+                        });
+                        
+                        // Перемешиваем порядок ячеек в DOM
+                        for (let i = gameState.cells.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            gameGrid.appendChild(gameState.cells[j]);
+                        }
+                        
+                        // Анимируем перемещение к новым позициям
+                        gameState.cells.forEach((cell, index) => {
+                            const rect = cell.getBoundingClientRect();
+                            const newLeft = rect.left - containerRect.left;
+                            const newTop = rect.top - containerRect.top;
+                            
+                            // Устанавливаем начальную позицию
+                            cell.style.transform = `translate(${initialPositions[index].left - newLeft}px, ${initialPositions[index].top - newTop}px)`;
+                            cell.style.transition = 'none';
+                            
+                            // Запускаем анимацию
+                            requestAnimationFrame(() => {
+                                cell.style.transition = 'transform 2.5s ease-in-out';
+                                cell.style.transform = 'translate(0, 0)';
+                            });
+                        });
+                        
+                        setTimeout(resolve, 2500);
+                    } catch (e) {
+                        console.error("Ошибка при перемешивании ячеек:", e);
+                        resolve();
+                    }
+                });
+            }
+            
+            // Запуск таймера
+            function startTimer() {
+                gameState.timeLeft = gameSettings.gameTime;
+                timer.textContent = `У вас есть ${gameState.timeLeft} секунд!`;
+                
+                if (gameSettings.testMode) {
+                    timer.textContent = 'Тестовый режим - время не ограничено';
+                    return;
+                }
+                
+                gameState.timerInterval = setInterval(() => {
+                    gameState.timeLeft--;
+                    timer.textContent = `У вас есть ${gameState.timeLeft} секунд!`;
+                    
+                    if (gameState.timeLeft <= 0) {
+                        clearInterval(gameState.timerInterval);
+                        endGame();
+                    }
+                }, 1000);
+            }
+            
+            // Последовательное открытие всех ячеек
+            function revealAllCells(selectedIndex) {
+                return new Promise(resolve => {
+                    try {
+                        let delay = 0;
+                        
+                        gameState.cells.forEach((cell, index) => {
+                            if (index === selectedIndex) return; // Пропускаем выбранную ячейку
+                            
+                            setTimeout(() => {
+                                if (gameState.fakeWinCells.includes(index)) {
+                                    cell.className = 'game-cell open win';
+                                    // Назначаем приз неиграющей ячейке
+                                    const prizeIndex = index % gameSettings.prizes.length;
+                                    cell.textContent = gameSettings.prizes[prizeIndex];
+                                } else if (gameState.secondChanceCellIndexes.includes(index)) {
+                                    cell.className = 'game-cell open second-chance';
+                                    cell.textContent = gameSettings.secondChanceName;
+                                } else if (gameState.specialCellIndexes.includes(index)) {
+                                    const specialCellIndex = gameState.specialCellIndexes.indexOf(index);
+                                    cell.className = 'game-cell open special';
+                                    cell.textContent = gameSettings.specialCells[specialCellIndex].prize;
+                                } else {
+                                    cell.className = 'game-cell open lose';
+                                }
+                            }, delay);
+                            
+                            delay += 100; // Задержка между открытием ячеек
+                        });
+                        
+                        // Открываем выбранную ячейку последней
+                        setTimeout(() => {
+                            const selectedCell = gameState.cells[selectedIndex];
+                            if (gameState.fakeWinCells.includes(selectedIndex)) {
+                                // Неиграющая ячейка - заменяем на проигрыш
+                                selectedCell.className = 'game-cell open lose';
+                            } else if (gameState.secondChanceCellIndexes.includes(selectedIndex)) {
+                                selectedCell.className = 'game-cell open second-chance';
+                                selectedCell.textContent = gameSettings.secondChanceName;
+                            } else if (gameState.specialCellIndexes.includes(selectedIndex)) {
+                                const specialCellIndex = gameState.specialCellIndexes.indexOf(selectedIndex);
+                                selectedCell.className = 'game-cell open special';
+                                selectedCell.textContent = gameSettings.specialCells[specialCellIndex].prize;
+                            } else {
+                                selectedCell.className = 'game-cell open lose';
+                            }
+                            
+                            resolve();
+                        }, delay);
+                    } catch (e) {
+                        console.error("Ошибка при открытии ячеек:", e);
+                        resolve();
+                    }
+                });
+            }
+            
+            // Обработчик клика по ячейке
+            function handleCellClick(e) {
+                if (!gameState.isPlaying) return;
+                
+                const cell = e.target;
+                if (!cell.classList.contains('game-cell') || cell.classList.contains('open')) return;
+                
+                const cellIndex = parseInt(cell.dataset.index);
+                gameState.selectedCellIndex = cellIndex;
+                
+                // Останавливаем таймер
+                clearInterval(gameState.timerInterval);
+                
+                // Убираем обработчики событий
+                gameState.cells.forEach(cell => {
+                    cell.removeEventListener('click', handleCellClick);
+                });
+                
+                // Открываем все ячейки последовательно
+                revealAllCells(cellIndex).then(() => {
+                    // Проверяем, является ли ячейка вторым шансом
+                    if (gameState.secondChanceCellIndexes.includes(cellIndex)) {
+                        gameState.secondChancesRemaining++;
+                        secondChanceMessage.style.display = 'flex';
+                        
+                        // НЕ устанавливаем автообновление для второго шанса
+                        return;
+                    }
+                    
+                    // Проверяем, является ли ячейка специальной выигрышной
+                    if (gameState.specialCellIndexes.includes(cellIndex)) {
+                        const specialCellIndex = gameState.specialCellIndexes.indexOf(cellIndex);
+                        const specialCell = gameSettings.specialCells[specialCellIndex];
+                        
+                        // Добавляем выигрыш к балансу
+                        addToBalance(specialCell.prize);
+                        
+                        // Показываем сообщение о выигрыше
+                        winMessage.style.display = 'flex';
+                        
+                        // Автообновление через 3 секунды
+                        startAutoReset();
+                    } else {
+                        // Проигрыш (включая неиграющие ячейки с призами)
+                        fullscreenMessage.style.display = 'flex';
+                        
+                        // Автообновление через 3 секунды
+                        startAutoReset();
+                    }
+                });
+            }
+            
+            // Начало игры
+            async function startGame() {
+                // Очищаем предыдущий таймер автообновления
+                if (autoResetTimer) {
+                    clearTimeout(autoResetTimer);
+                    autoResetTimer = null;
+                }
+                
+                // Очищаем таймер обратного отсчета
+                if (countdownTimer) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+                
+                // Скрываем индикатор автообновления
+                autoResetIndicator.style.display = 'none';
+                
+                if (gameState.isPlaying) return;
+                
+                startGameBtn.disabled = true;
+                gameMessage.style.display = 'none';
+                fullscreenMessage.style.display = 'none';
+                winMessage.style.display = 'none';
+                secondChanceMessage.style.display = 'none';
+                gameState.hasSecondChance = false;
+                gameState.secondChancesRemaining = 0;
+                gameState.selectedCellIndex = -1;
+                
+                // Создаем ячейки
+                createGameGrid();
+                
+                // Показываем все ячейки на 6 секунд для ознакомления с призами
+                showAllCells();
+                timer.textContent = "Ознакомьтесь с призами! Осталось 6 секунд";
+                
+                // Запускаем таймер обратного отсчета для фазы ознакомления
+                await new Promise(resolve => {
+                    let timeLeft = 6;
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        timer.textContent = `Ознакомьтесь с призами! Осталось ${timeLeft} секунд`;
+                        
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            resolve();
+                        }
+                    }, 1000);
+                });
+                
+                // Закрываем ячейки
+                closeAllCells();
+                
+                // Перемешиваем ячейки
+                await shuffleCells();
+                
+                // Добавляем обработчики событий
+                gameState.cells.forEach(cell => {
+                    cell.addEventListener('click', handleCellClick);
+                });
+                
+                // Запускаем таймер
+                startTimer();
+                
+                gameState.isPlaying = true;
+            }
+            
+            // Завершение игры
+            function endGame() {
+                gameState.isPlaying = false;
+                clearInterval(gameState.timerInterval);
+                
+                // Убираем обработчики событий
+                gameState.cells.forEach(cell => {
+                    cell.removeEventListener('click', handleCellClick);
+                });
+                
+                // Показываем сообщение о проигрыше
+                fullscreenMessage.style.display = 'flex';
+                
+                // Автообновление через 3 секунды
+                startAutoReset();
+            }
+            
+            // Обновление статистики
+            function updateStats() {
+                // Обновляем онлайн-игроков
+                onlineCount.textContent = Math.floor(Math.random() * 50) + 3;
+                
+                // Обновляем баланс
+                updateBalance();
+            }
+            
+            // Обновление счетчика онлайн-игроков
+            function updateOnlineCount() {
+                // Случайное изменение количества онлайн-игроков
+                const currentCount = parseInt(onlineCount.textContent);
+                const change = Math.floor(Math.random() * 11) - 5; // от -5 до +5
+                const newCount = Math.max(3, Math.min(52, currentCount + change));
+                onlineCount.textContent = newCount;
+            }
+            
+            // Инициализация приложения
+            initApp();
+        });
+    </script>
+</body>
+</html>
